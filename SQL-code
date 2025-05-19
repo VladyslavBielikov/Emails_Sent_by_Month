@@ -1,0 +1,36 @@
+/*Calculate the percentage of emails sent to each account within a month. 
+Determine the first and last dates of email delivery for each account in a month.*/
+WITH email_metrics AS (
+SELECT
+DATE (EXTRACT(year FROM DATE_ADD (s.date ,INTERVAL e_s.sent_date DAY)) ,
+EXTRACT(month FROM DATE_ADD (s.date ,INTERVAL e_s.sent_date DAY)) , 01) AS sent_month ,
+e_s.id_account ,
+COUNT (e_s.id_message) AS msg_cnt ,
+MIN (DATE_ADD (s.date ,INTERVAL e_s.sent_date DAY)) AS first_sent_date ,
+MAX (DATE_ADD (s.date ,INTERVAL e_s.sent_date DAY)) AS last_sent_date
+FROM  `data-analytics-mate.DA.email_sent` AS e_s
+INNER JOIN `data-analytics-mate.DA.account_session` AS a_s
+ON e_s.id_account = a_s.account_id
+INNER JOIN `data-analytics-mate.DA.session` AS s
+ON a_s.ga_session_id = s.ga_session_id
+GROUP BY sent_month , e_s.id_account
+) ,
+final_email_metrics AS (
+SELECT
+sent_month ,
+SUM (msg_cnt) AS total_msg_cnt
+FROM email_metrics
+GROUP BY sent_month
+)
+
+/*Creating the result table*/
+SELECT
+email_metrics.sent_month ,
+email_metrics.id_account ,
+email_metrics.msg_cnt / total_msg_cnt *100 AS sent_msg_percent_from_this_month ,
+email_metrics.first_sent_date ,
+email_metrics.last_sent_date
+FROM email_metrics
+INNER JOIN final_email_metrics
+ON email_metrics.sent_month = final_email_metrics.sent_month
+;
